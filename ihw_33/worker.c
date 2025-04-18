@@ -42,23 +42,36 @@ int main(int argc, char *argv[]) {
     int sem_id = semget(SEM_KEY, 1, 0666);
     int msg_id = msgget(MSG_KEY, 0666);
 
+    // Получаем сообщение с нужным индексом
     struct msgbuf msg;
-    msgrcv(msg_id, &msg, sizeof(msg.data), 1, 0);
+    while (1) {
+        if (msgrcv(msg_id, &msg, sizeof(msg.data), 1, 0) == -1) {
+            perror("msgrcv");
+            exit(1);
+        }
+        if (msg.data.index == index) break;
+        // Если сообщение не для этого worker'а, возвращаем его в очередь
+        msgsnd(msg_id, &msg, sizeof(msg.data), 0);
+    }
 
     char encrypted[1024];
     encode_text(msg.data.text, encrypted);
 
+    // Блокируем семафор перед доступом к shared_data
     struct sembuf sb = {0, -1, 0};
     semop(sem_id, &sb, 1);
 
+    // Записываем в свой индекс
     strcpy(shared_data->fragments[index].original, msg.data.text);
     strcpy(shared_data->fragments[index].encrypted, encrypted);
     shared_data->fragments[index].index = index;
 
+    // Разблокируем семафор
     sb.sem_op = 1;
     semop(sem_id, &sb, 1);
 
     printf("[Worker-%d] Encrypted: %s -> %s\n", index, msg.data.text, encrypted);
 
+    shmdt(shared_data);
     return 0;
 }

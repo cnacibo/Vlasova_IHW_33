@@ -16,6 +16,7 @@ int main(int argc, char *argv[]) {
 
     int shm_id = shmget(SHM_KEY, sizeof(SharedData), IPC_CREAT | 0666);
     SharedData *shared_data = (SharedData *)shmat(shm_id, NULL, 0);
+    shared_data->count = num_processes; // Сохраняем количество процессов
 
     int sem_id = semget(SEM_KEY, 1, IPC_CREAT | 0666);
     semctl(sem_id, 0, SETVAL, 1);
@@ -31,8 +32,11 @@ int main(int argc, char *argv[]) {
         struct msgbuf msg;
         msg.mtype = 1;
         msg.data.index = i;
-        strncpy(msg.data.text, input + i * chunk_size, chunk_size);
-        msg.data.text[chunk_size] = '\0';
+        int start = i * chunk_size;
+        int size = chunk_size;
+        if (start + size > len) size = len - start;
+        strncpy(msg.data.text, input + start, size);
+        msg.data.text[size] = '\0';
         msgsnd(msg_id, &msg, sizeof(msg.data), 0);
     }
 
@@ -48,19 +52,20 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    // Ожидание
+    // Ожидание завершения всех worker'ов
     for (int i = 0; i < num_processes; i++) {
         wait(NULL);
     }
 
-
     printf("\n[Master] Final encoded message:\n");
+    // Выводим фрагменты в правильном порядке
     for (int i = 0; i < num_processes; i++) {
         printf("%s", shared_data->fragments[i].encrypted);
     }
     printf("\n");
 
     // Очистка
+    shmdt(shared_data);
     shmctl(shm_id, IPC_RMID, NULL);
     semctl(sem_id, 0, IPC_RMID);
     msgctl(msg_id, IPC_RMID, NULL);
