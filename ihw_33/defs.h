@@ -23,6 +23,7 @@
 #define MAX_TEXT_LEN 1024
 #define MAX_WORKERS 10
 #define MAX_FRAGMENT_SIZE 256
+#define MAX_PROCESSES 32
 
 struct msgbuf {
     long mtype;

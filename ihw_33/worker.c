@@ -1,23 +1,37 @@
 #include "defs.h"
 
-char encode_char(char c) {
-    if (c >= 'A' && c <= 'Z') return 'A' + ((c - 'A' + 3) % 26);
-    if (c >= 'a' && c <= 'z') return 'a' + ((c - 'a' + 3) % 26);
-    return c;
-}
+#define ALPHABET_SIZE 26
+int code_table[ALPHABET_SIZE] = {
+    10, 42, 12, 21, 7, 45, 67, 88, 23, 90,
+    34, 56, 78, 11, 33, 55, 77, 99, 22, 44,
+    66, 8, 9, 15, 19, 25
+};
 
-void encode_text(char *src, char *dest) {
-    int i;
-    for (i = 0; src[i]; ++i) {
-        dest[i] = encode_char(src[i]);
+void encode_text(const char *src, char *dest) {
+    char buffer[1024] = {0};
+    for (int i = 0; src[i]; ++i) {
+        char c = src[i];
+        if (c >= 'A' && c <= 'Z') {
+            char num[8];
+            sprintf(num, "%d ", code_table[c - 'A']);
+            strcat(buffer, num);
+        } else if (c >= 'a' && c <= 'z') {
+            char num[8];
+            sprintf(num, "%d ", code_table[c - 'a']);
+            strcat(buffer, num);
+        } else if (c == ' ') {
+            strcat(buffer, "| ");
+        } else {
+            strcat(buffer, "? ");
+        }
     }
-    dest[i] = '\0';
+    strcpy(dest, buffer);
 }
 
 int main(int argc, char *argv[]) {
     if (argc != 2) {
-        fprintf(stderr, "Usage: %s index\n", argv[0]);
-        return 1;
+        fprintf(stderr, "Usage: %s <fragment_index>\n", argv[0]);
+        exit(1);
     }
 
     int index = atoi(argv[1]);
@@ -31,7 +45,7 @@ int main(int argc, char *argv[]) {
     struct msgbuf msg;
     msgrcv(msg_id, &msg, sizeof(msg.data), 1, 0);
 
-    char encrypted[MAX_FRAGMENT_SIZE];
+    char encrypted[1024];
     encode_text(msg.data.text, encrypted);
 
     struct sembuf sb = {0, -1, 0};
